@@ -201,9 +201,7 @@ class Play(pygame.sprite.Sprite):
                 self.rect_game_over.x += self.speed / self.fps
                 self.screen.blit(self.game_over_im, self.rect_game_over)
                 pygame.display.flip()
-            else:
-                self.game_over_flag = False
-                end_screen()
+            end_screen(self.screen)
         pygame.display.flip()
 
     def check_game_over(self):
@@ -215,20 +213,30 @@ class Play(pygame.sprite.Sprite):
         Music(self.screen).game_over_music()
 
 
-def end_screen():
+def end_screen(screen):
+    fps = 60
+    clock = pygame.time.Clock()
     manager = pygame_gui.UIManager((500, 1000))
     switch = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((100, 650), (300, 50)),
                                           text='Начать заново',
                                           manager=manager)
+    pygame.display.flip()
 
     while True:
+        time_delta = clock.tick(fps) / 1000
+        clock.tick(fps)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
             if event.type == pygame.USEREVENT:
                 if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
                     if event.ui_element == switch:
+                        manager = 0
                         start_screen()
+            manager.process_events(event)
+            manager.update(time_delta)
+            manager.draw_ui(screen)
+            pygame.display.flip()
 
 
 def start_screen():
