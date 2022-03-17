@@ -19,68 +19,106 @@ def load_image(name):
     return image
 
 
-class Sprite(pygame.sprite.Sprite):
-     def __init__(self, group):
-         super().__init__(group)
+class Font:
+    def __init__(self):
+        self.font = pygame.font.Font(None, 50)
 
 
-class Player(Sprite):
-    player_image = load_image('data/people.png')
+class Player(pygame.sprite.Sprite):
+    player_image = load_image('venv/data/people.png')
+    player_image = pygame.transform.scale(player_image, (100, 110))
+    player_image.set_colorkey('white')
 
-    def __init__(self, group):
-        Sprite.__init__(self, group)
+    def __init__(self, screen):
+        pygame.sprite.Sprite.__init__(self)
+        self.screen = screen
+        self.fps = 60
         self.game_over_flag = True
-        self.speed = 120
-        self.height_jump = 80
+        self.speed = 300
+        self.height_jump = 250
         self.clock = pygame.time.Clock()
-        self.draw_music = False
+        self.vy = 40
+        self.max_height = 0
+        self.point = Point(self.screen)
+        self.play = Play(self.screen)
 
-        self.people = Player.player_image
-        self.rect = self.people.get_rect()
-        self.rect.x = 250 - self.people.get_width() / 2
-        self.rect.y = 1000 - self.people.get_height()
+        self.image = Player.player_image
+        self.rect = self.image.get_rect()
+        self.rect.x = 250 - self.image.get_width() / 2
+        self.rect.y = 980 - self.image.get_height()
 
-    def jump(self, image, draw_music=False):
-        self.draw_music = draw_music
-        if self.rect.y < 0:
-            self.game_over_flag = True
-
-    def left(self, turbo=False, draw_music=False):
-        image = pygame.transform.flip(self.people, True, False)
+    def update(self, left, turbo, right, *args):
+        if self.rect.y > self.max_height:
+            self.max_height = self.rect.y
         if turbo:
+            self.image = pygame.transform.flip(Player.player_image, True, False)
             self.rect.x -= self.speed / self.fps
-        else:
-            self.rect.x -= self.speed / 2 / self.fps
-        if self.rect.x < 0 - self.people.get_width():
-            self.rect.x = 500 - self.people.get_width()
-        self.jump(image, draw_music)
-
-    def right(self, draw_music):
-        self.rect.x += self.speed / self.fps
+        if left:
+            self.image = pygame.transform.flip(Player.player_image, True, False)
+            self.rect.x -= self.speed / self.fps / 2
+        if right:
+            self.image = Player.player_image
+            self.rect.x += self.speed / self.fps
+        if self.rect.x < 0 - self.image.get_width():
+            self.rect.x = 500
         if self.rect.x > 500:
-            self.rect.x = 0
-        self.jump(self.people, draw_music)
+            self.rect.x = 0 - self.image.get_width()
+        if self.rect.y > 1000:
+            Play(self.screen).check_game_over()
+        self.rect.y -= self.vy
+        if 40 >= self.vy > -40:
+            self.vy -= 4
+        else:
+            self.vy = 40
+        Point(self.screen).sum_point(self.max_height)
 
 
-class Platforms(Sprite):
-    platform = load_image('data/platform.png')
+class Earth(pygame.sprite.Sprite):
+    earth_im = load_image('venv/data/earth.jfif')
+    earth_im.set_colorkey('white')
+    earth_im = pygame.transform.scale(earth_im, (560, 100))
 
-    def __init__(self, group):
-        Sprite.__init__(self, group)
-        self.platform_im = Platforms.platform
-        self.begin_platfoms_im = pygame.transform.scale(self.platform_im, (490, 20))
-        self.begin_platfoms_im.set_colorkey('white')
-        self.begin_platform_rect = self.begin_platfoms_im.get_rect()
-        self.begin_platform_rect.x = 5
-        self.begin_platform_rect.y = 980
-        self.platforms()
+    def __init__(self):
+        super().__init__()
+        self.image = Earth.earth_im
+        self.rect = self.image.get_rect()
+        self.rect.x = -30
+        self.rect.y = 1030 - self.image.get_height()
 
-    def platforms(self):
+
+class ReliablePlatform:
+    platform = load_image('venv/data/platform.png')
+
+    def __init__(self, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = Platforms.platform
+        self.image.set_colorkey('white')
+        self.rect = self.image.get_rect()
+        self.rect.y = y * 150
+
+    def update(self):
         pass
 
 
-class Point:
+class Platforms(pygame.sprite.Sprite):
+    platform = load_image('venv/data/platform.png')
+
     def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = Platforms.platform
+        self.image.set_colorkey('white')
+        self.rect = self.image.get_rect()
+        self.rect.x = random.randrange(0, 500 - self.image.get_width())
+        self.rect.y = random.randrange(0, 900)
+
+    def update(self):
+        pass
+
+
+class Point(Font):
+    def __init__(self, screen):
+        super().__init__()
+        self.screen = screen
         self.point = 0
 
     def sum_point(self, max_height):
@@ -91,14 +129,16 @@ class Point:
         self.screen.blit(text_point, (10, 10))
 
 
-class Music:
-    def __init__(self):
+class Music(Font):
+    def __init__(self, screen):
+        super().__init__()
+        self.screen = screen
         self.val = 1
 
     def music(self, file):
         landing = pygame.mixer.Sound(file)
         landing.set_volume(self.val)
-        if file == "data/landing.mp3":
+        if file == "venv/data/landing.mp3":
             landing.play(maxtime=1000)
         else:
             landing.play()
@@ -106,12 +146,12 @@ class Music:
     def difference(self):
         if self.val >= 0.1:
             self.val -= 0.1
-        self.music("data/landing.mp3")
+        self.music("venv/data/landing.mp3")
 
     def sum_val(self):
         if self.val < 1:
             self.val += 0.1
-        self.music("data/landing.mp3")
+        self.music("venv/data/landing.mp3")
 
     def draw_procents(self):
         val = int(self.val * 100)
@@ -119,38 +159,25 @@ class Music:
         self.screen.blit(text_val, (490 - text_val.get_width(), 10))
 
     def game_over_music(self):
-        self.music('data/game_over.mp3')
+        self.music('venv/data/game_over.mp3')
 
 
-class Play(Music, Platforms, Point, Player):
-    def __init__(self, screen, people_group, platform_group):
-        Music.__init__(self)
-        Point.__init__(self)
-        Player.__init__(self, people_group)
-        Platforms.__init__(self, platform_group)
+class Play(pygame.sprite.Sprite):
+    def __init__(self, screen):
+        pygame.sprite.Sprite.__init__(self)
         self.w = 500
         self.h = 1000
         self.screen = screen
         self.fps = 60
         self.font = pygame.font.Font(None, 50)
-        self.fon_im = load_image("data/fon.png")
-        self.fon_im = pygame.transform.scale(self.fon_im, (self.w, self.h))
-        self.fon_rect = self.fon_im.get_rect()
-        self.fon_rect.x = 0
-        self.fon_rect.y = 0
 
-        self.game_over_im = pygame.image.load('data/game_over.png')
+        self.game_over_flag = False
+        self.game_over_im = pygame.image.load('venv/data/game_over.png')
         self.game_over_im = pygame.transform.scale(self.game_over_im, (500, 200))
         self.rect_game_over = self.game_over_im.get_rect(center=(0 - self.game_over_im.get_width() / 2,
                                                                  500))
-        self.game_over()
-        self.image
 
     def draw(self):
-        self.screen.blit(self.fon_im, self.fon_rect)
-        self.draw_point_val()
-        if self.draw_music:
-            self.draw_procents()
         if self.game_over_flag:
             if self.rect_game_over.x < 0:
                 self.rect_game_over.x += 200 / 60
@@ -161,11 +188,12 @@ class Play(Music, Platforms, Point, Player):
         pygame.display.flip()
 
     def check_game_over(self):
-        if self.game_over_flag:
-            self.game_over()
+        self.game_over_flag = True
+        self.draw()
+        self.game_over()
 
     def game_over(self):
-        self.game_over_music()
+        Music(self.screen).game_over_music()
 
 
 def end_screen():
@@ -191,14 +219,14 @@ def start_screen():
     screen = pygame.display.set_mode((w, h))
     pygame.display.set_caption('Jumper')
 
-    begin_im = load_image('data/begin.png')
+    begin_im = load_image('venv/data/begin.png')
     begin_im = pygame.transform.scale(begin_im, (500, 1000))
     begin_rect = begin_im.get_rect()
     begin_rect.x = 0
     begin_rect.y = 0
     screen.blit(begin_im, begin_rect)
 
-    arrow = load_image('data/arrow.png')
+    arrow = load_image('venv/data/arrow.png')
     arrow.set_colorkey('white')
     arrow_down = pygame.transform.scale(arrow, (100, 100))
     arrow_down = pygame.transform.rotate(arrow_down, 90)
@@ -241,11 +269,20 @@ def start_screen():
                                           manager=manager)
     pygame.display.flip()
 
+    fon_im = load_image("venv/data/fon.png")
+    fon_im = pygame.transform.scale(fon_im, (w, h))
+    fon_rect = fon_im.get_rect()
+    fon_rect.x = 0
+    fon_rect.y = 0
+
+    count_platform = 47
     fps = 60
     clock = pygame.time.Clock()
+    earth_group = pygame.sprite.Group()
     people_group = pygame.sprite.Group()
     platform_group = pygame.sprite.Group()
 
+    time_click = 0
     left = True
     left_turbo = False
     right = False
@@ -265,8 +302,15 @@ def start_screen():
                         manager = 0
                         screen = pygame.display.set_mode((w, h))
                         pygame.display.set_caption('Jumper')
-
-                        play = Play(screen, people_group, platform_group)
+####################################################################################################################
+                        music = Music(screen)
+                        point = Point(screen)
+                        play = Play(screen)
+                        player = Player(screen)
+                        for i in range(50):
+                            platform_group.add(Platforms())
+                        earth_group.add(Earth())
+                        people_group.add(Player(screen))
                         main_motion = True
             if main_motion:
                 if event.type == pygame.KEYDOWN:
@@ -281,16 +325,12 @@ def start_screen():
                     if event.key == pygame.K_UP:
                         music_sum_val = True
                         draw_music = True
+                        time_click = 0
                     if event.key == pygame.K_DOWN:
                         music_difference = True
                         draw_music = True
+                        time_click = 0
                 if event.type == pygame.KEYUP:
-                    if event.key == pygame.K_DOWN:
-                        music_difference = False
-                        time_click = 0
-                    if event.key == pygame.K_UP:
-                        music_sum_val = False
-                        time_click = 0
                     if event.key == pygame.K_RIGHT:
                         right = False
                         left_turbo = False
@@ -303,26 +343,30 @@ def start_screen():
                 manager.process_events(event)
                 manager.update(time_delta)
                 manager.draw_ui(screen)
-        if manager == 0:
-            if left:
-                play.left(draw_music=draw_music)
-            if left_turbo:
-                play.left(True, draw_music=draw_music)
-            if right:
-                play.right(draw_music=draw_music)
+        if main_motion:
+            play.draw()
+            screen.blit(fon_im, fon_rect)
+            earth_group.draw(screen)
+            platform_group.draw(screen)
+            people_group.draw(screen)
+            point.draw_point_val()
+            pygame.display.flip()
             if draw_music:
                 time_click += 1/fps
                 if time_click > 2.5:
                     draw_music = False
             if music_sum_val:
-                play.sum_val()
+                music.sum_val()
+                music_sum_val = False
             if music_difference:
-                play.difference()
-            play
-            play.check_game_over()
-            platform_group.draw(screen)
-            people_group.draw(screen)
+                music.difference()
+                music_difference = False
+            if draw_music:
+                music.draw_procents()
+            people_group.update(left, left_turbo, right)
+            platform_group.update()
         pygame.display.flip()
 
 
-start_screen()
+if __name__ == '__main__':
+    start_screen()
