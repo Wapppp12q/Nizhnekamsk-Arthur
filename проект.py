@@ -29,18 +29,22 @@ class Player(pygame.sprite.Sprite):
     player_image = pygame.transform.scale(player_image, (100, 110))
     player_image.set_colorkey('white')
 
-    def __init__(self, screen):
+    def __init__(self, screen, people_group, platform_group, earth_group):
         pygame.sprite.Sprite.__init__(self)
+        self.people_group = people_group
+        self.platform_group = platform_group
+        self.earth_group = earth_group
         self.screen = screen
         self.fps = 60
         self.game_over_flag = True
-        self.speed = 300
+        self.speed = 500
         self.height_jump = 250
         self.clock = pygame.time.Clock()
         self.vy = 40
         self.max_height = 0
         self.point = Point(self.screen)
         self.play = Play(self.screen)
+        self.music = Music(self.screen)
 
         self.image = Player.player_image
         self.rect = self.image.get_rect()
@@ -55,7 +59,7 @@ class Player(pygame.sprite.Sprite):
             self.rect.x -= self.speed / self.fps
         if left:
             self.image = pygame.transform.flip(Player.player_image, True, False)
-            self.rect.x -= self.speed / self.fps / 2
+            self.rect.x -= (self.speed - 300) / self.fps / 2
         if right:
             self.image = Player.player_image
             self.rect.x += self.speed / self.fps
@@ -64,13 +68,18 @@ class Player(pygame.sprite.Sprite):
         if self.rect.x > 500:
             self.rect.x = 0 - self.image.get_width()
         if self.rect.y > 1000:
-            Play(self.screen).check_game_over()
+            self.play.check_game_over()
         self.rect.y -= self.vy
-        if 40 >= self.vy > -40:
+        if 40 >= self.vy and not (pygame.sprite.groupcollide(self.people_group, self.earth_group, False, False)
+                                  or pygame.sprite.groupcollide(self.people_group, self.platform_group, False, False)):
             self.vy -= 4
+        elif (pygame.sprite.groupcollide(self.people_group, self.earth_group, False, False)
+              or pygame.sprite.groupcollide(self.people_group, self.platform_group, False, False)):
+            self.vy = 40
+            self.music.landing_mp()
         else:
             self.vy = 40
-        Point(self.screen).sum_point(self.max_height)
+        self.point.sum_point(self.max_height)
 
 
 class Earth(pygame.sprite.Sprite):
@@ -86,14 +95,15 @@ class Earth(pygame.sprite.Sprite):
         self.rect.y = 1030 - self.image.get_height()
 
 
-class ReliablePlatform:
+class ReliablePlatform(pygame.sprite.Sprite):
     platform = load_image('venv/data/platform.png')
 
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)
-        self.image = Platforms.platform
+        self.image = ReliablePlatform.platform
         self.image.set_colorkey('white')
         self.rect = self.image.get_rect()
+        self.rect.x = random.randrange(x - 10, x + 10)
         self.rect.y = y * 150
 
     def update(self):
@@ -158,6 +168,9 @@ class Music(Font):
         text_val = self.font.render(str(val) + '%', True, '#808080')
         self.screen.blit(text_val, (490 - text_val.get_width(), 10))
 
+    def landing_mp(self):
+        self.music("venv/data/landing.mp3")
+
     def game_over_music(self):
         self.music('venv/data/game_over.mp3')
 
@@ -167,21 +180,27 @@ class Play(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self)
         self.w = 500
         self.h = 1000
+        self.speed = 200
+        self.fps = 60
         self.screen = screen
         self.fps = 60
         self.font = pygame.font.Font(None, 50)
+        self.clock = pygame.time.Clock()
 
         self.game_over_flag = False
         self.game_over_im = pygame.image.load('venv/data/game_over.png')
-        self.game_over_im = pygame.transform.scale(self.game_over_im, (500, 200))
+        self.game_over_im.set_colorkey('white')
+        self.game_over_im = pygame.transform.scale(self.game_over_im, (500, 300))
         self.rect_game_over = self.game_over_im.get_rect(center=(0 - self.game_over_im.get_width() / 2,
                                                                  500))
 
     def draw(self):
         if self.game_over_flag:
-            if self.rect_game_over.x < 0:
-                self.rect_game_over.x += 200 / 60
+            while self.rect_game_over.x < 0:
+                self.clock.tick(self.fps)
+                self.rect_game_over.x += self.speed / self.fps
                 self.screen.blit(self.game_over_im, self.rect_game_over)
+                pygame.display.flip()
             else:
                 self.game_over_flag = False
                 end_screen()
@@ -189,8 +208,8 @@ class Play(pygame.sprite.Sprite):
 
     def check_game_over(self):
         self.game_over_flag = True
-        self.draw()
         self.game_over()
+        self.draw()
 
     def game_over(self):
         Music(self.screen).game_over_music()
@@ -275,7 +294,7 @@ def start_screen():
     fon_rect.x = 0
     fon_rect.y = 0
 
-    count_platform = 47
+    count_platform = 0
     fps = 60
     clock = pygame.time.Clock()
     earth_group = pygame.sprite.Group()
@@ -306,11 +325,13 @@ def start_screen():
                         music = Music(screen)
                         point = Point(screen)
                         play = Play(screen)
-                        player = Player(screen)
-                        for i in range(50):
+                        for i in range(5):
+                            platform_group.add(ReliablePlatform(random.randrange(0, 500-200), i))
+                        for i in range(count_platform):
                             platform_group.add(Platforms())
-                        earth_group.add(Earth())
-                        people_group.add(Player(screen))
+                        #earth_group.add(Earth())
+                        people_group.add(Player(screen, people_group, platform_group, earth_group))
+                        player = Player(screen, people_group, platform_group, earth_group)
                         main_motion = True
             if main_motion:
                 if event.type == pygame.KEYDOWN:
