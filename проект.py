@@ -24,36 +24,85 @@ class Font:
         self.font = pygame.font.Font(None, 50)
 
 
-class Player(pygame.sprite.Sprite):
+class Point(Font):
+    def __init__(self, screen):
+        Font.__init__(self)
+        self.screen = screen
+        self.point = 0
+
+    def sum_point(self, max_height):
+        self.point = max_height
+        self.draw_point_val()
+
+    def draw_point_val(self):
+        text_point = self.font.render(str(self.point), True, '#808080')
+        self.screen.blit(text_point, (10, 10))
+
+
+class Music(Font):
+    def __init__(self, screen):
+        Font.__init__(self)
+        self.screen = screen
+
+    def music(self, file, val):
+        landing = pygame.mixer.Sound(file)
+        landing.set_volume(val)
+        if file == "venv/data/landing.mp3":
+            landing.play(maxtime=1000)
+        else:
+            landing.play()
+
+    def landing_mp(self, val):
+        self.music("venv/data/landing.mp3", val)
+
+    def game_over_music(self):
+        self.music('venv/data/game_over.mp3', 1)
+
+
+class Player(Music, Point, pygame.sprite.Sprite):
     player_image = load_image('venv/data/people.png')
-    player_image = pygame.transform.scale(player_image, (100, 110))
+    player_image = pygame.transform.scale(player_image, (60, 70))
     player_image.set_colorkey('white')
 
     def __init__(self, screen, people_group, platform_group, earth_group):
         pygame.sprite.Sprite.__init__(self)
-        self.people_group = people_group
-        self.platform_group = platform_group
-        self.earth_group = earth_group
+        Music.__init__(self, screen)
+        Point.__init__(self, screen)
+        self.play = Play(screen)
+        self.val = 1
+
         self.screen = screen
         self.fps = 60
-        self.game_over_flag = True
         self.speed = 500
-        self.height_jump = 250
         self.clock = pygame.time.Clock()
-        self.vy = 40
+        self.vy = 28
         self.max_height = 0
-        self.point = Point(self.screen)
-        self.play = Play(self.screen)
-        self.music = Music(self.screen)
+        self.collide_flag = True
 
         self.image = Player.player_image
         self.rect = self.image.get_rect()
         self.rect.x = 250 - self.image.get_width() / 2
         self.rect.y = 980 - self.image.get_height()
 
-    def update(self, left, turbo, right, *args):
-        if self.rect.y > self.max_height:
-            self.max_height = self.rect.y
+    def difference(self):
+        if self.val > 0.1:
+            self.val -= 0.1
+
+    def sum_val(self):
+        if self.val < 1:
+            self.val += 0.1
+            self.draw_procents()
+
+    def draw_procents(self):
+        val = int(self.val * 100)
+        text_val = self.font.render(str(val) + '%', True, '#808080')
+        self.screen.blit(text_val, (490 - text_val.get_width(), 10))
+
+    def update(self, left, turbo, right):
+        self.collide_flag = True
+        self.sum_point(self.max_height)
+        if 980 - self.image.get_height() - self.rect.y > self.max_height * 10:
+            self.max_height = int((980 - self.image.get_height() - self.rect.y) / 10)
         if turbo:
             self.image = pygame.transform.flip(Player.player_image, True, False)
             self.rect.x -= self.speed / self.fps
@@ -69,17 +118,35 @@ class Player(pygame.sprite.Sprite):
             self.rect.x = 0 - self.image.get_width()
         if self.rect.y > 1000:
             self.play.check_game_over()
-        self.rect.y -= self.vy
-        if 40 >= self.vy and not (pygame.sprite.groupcollide(self.people_group, self.earth_group, False, False)
-                                  or pygame.sprite.groupcollide(self.people_group, self.platform_group, False, False)):
-            self.vy -= 4
-        elif (pygame.sprite.groupcollide(self.people_group, self.earth_group, False, False)
-              or pygame.sprite.groupcollide(self.people_group, self.platform_group, False, False)):
-            self.vy = 40
-            self.music.landing_mp()
+        if self.rect.y >= 500 and self.rect.y - self.vy < 500:
+            self.max_height += 500 - self.rect.y
+            self.rect.y -= 500 - self.rect.y
+            group_changes(self.vy + self.rect.y - 500, self.vy)
         else:
-            self.vy = 40
-        self.point.sum_point(self.max_height)
+            self.rect.y -= self.vy
+        if pygame.sprite.groupcollide(people_group, earth_group, False, False):
+            self.vy = 28
+            self.landing_mp(self.val)
+            self.collide_flag = False
+        for platform in platform_group:
+            if (platform.rect[1] > self.rect.y + self.image.get_height() - 10 and
+                    pygame.sprite.groupcollide(people_group, platform_group, False, False) and
+                    self.vy <= 0):
+                self.vy = 28
+                self.landing_mp(self.val)
+                self.collide_flag = False
+                break
+        if not self.collide_flag:
+            for earth in earth_group:
+                if (earth.rect[1] > self.rect.y + self.image.get_height() - 10 and
+                        pygame.sprite.groupcollide(people_group, earth_group, False, False) and
+                        self.vy <= 0):
+                    self.vy = 28
+                    self.landing_mp(self.val)
+                    self.collide_flag = False
+                    break
+        if self.collide_flag:
+            self.vy -= 2
 
 
 class Earth(pygame.sprite.Sprite):
@@ -91,20 +158,22 @@ class Earth(pygame.sprite.Sprite):
         super().__init__()
         self.image = Earth.earth_im
         self.rect = self.image.get_rect()
-        self.rect.x = -30
+        self.rect.x = -31
         self.rect.y = 1030 - self.image.get_height()
 
 
 class ReliablePlatform(pygame.sprite.Sprite):
     platform = load_image('venv/data/platform.png')
+    platform.set_colorkey('white')
+    platform = pygame.transform.scale(platform, (80, 20))
 
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)
         self.image = ReliablePlatform.platform
         self.image.set_colorkey('white')
         self.rect = self.image.get_rect()
-        self.rect.x = random.randrange(x - 10, x + 10)
-        self.rect.y = y * 150
+        self.rect.x = random.randrange(-(x - 100), x + 100)
+        self.rect.y = y * 210
 
     def update(self):
         pass
@@ -112,6 +181,8 @@ class ReliablePlatform(pygame.sprite.Sprite):
 
 class Platforms(pygame.sprite.Sprite):
     platform = load_image('venv/data/platform.png')
+    platform.set_colorkey('white')
+    platform = pygame.transform.scale(platform, (80, 20))
 
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
@@ -125,66 +196,12 @@ class Platforms(pygame.sprite.Sprite):
         pass
 
 
-class Point(Font):
-    def __init__(self, screen):
-        super().__init__()
-        self.screen = screen
-        self.point = 0
-
-    def sum_point(self, max_height):
-        self.point += max_height
-
-    def draw_point_val(self):
-        text_point = self.font.render(str(self.point), True, '#808080')
-        self.screen.blit(text_point, (10, 10))
-
-
-class Music(Font):
-    def __init__(self, screen):
-        super().__init__()
-        self.screen = screen
-        self.val = 1
-
-    def music(self, file):
-        landing = pygame.mixer.Sound(file)
-        landing.set_volume(self.val)
-        if file == "venv/data/landing.mp3":
-            landing.play(maxtime=1000)
-        else:
-            landing.play()
-
-    def difference(self):
-        if self.val >= 0.1:
-            self.val -= 0.1
-        self.music("venv/data/landing.mp3")
-
-    def sum_val(self):
-        if self.val < 1:
-            self.val += 0.1
-        self.music("venv/data/landing.mp3")
-
-    def draw_procents(self):
-        val = int(self.val * 100)
-        text_val = self.font.render(str(val) + '%', True, '#808080')
-        self.screen.blit(text_val, (490 - text_val.get_width(), 10))
-
-    def landing_mp(self):
-        self.music("venv/data/landing.mp3")
-
-    def game_over_music(self):
-        self.music('venv/data/game_over.mp3')
-
-
 class Play(pygame.sprite.Sprite):
     def __init__(self, screen):
         pygame.sprite.Sprite.__init__(self)
-        self.w = 500
-        self.h = 1000
         self.speed = 200
-        self.fps = 60
         self.screen = screen
         self.fps = 60
-        self.font = pygame.font.Font(None, 50)
         self.clock = pygame.time.Clock()
 
         self.game_over_flag = False
@@ -198,11 +215,10 @@ class Play(pygame.sprite.Sprite):
         if self.game_over_flag:
             while self.rect_game_over.x < 0:
                 self.clock.tick(self.fps)
-                self.rect_game_over.x += self.speed / self.fps
+                self.rect_game_over.x += self.speed * 1.95 / self.fps
                 self.screen.blit(self.game_over_im, self.rect_game_over)
                 pygame.display.flip()
             end_screen(self.screen)
-        pygame.display.flip()
 
     def check_game_over(self):
         self.game_over_flag = True
@@ -211,6 +227,29 @@ class Play(pygame.sprite.Sprite):
 
     def game_over(self):
         Music(self.screen).game_over_music()
+
+
+earth_group = pygame.sprite.Group()
+people_group = pygame.sprite.Group()
+platform_group = pygame.sprite.Group()
+reliable_group = pygame.sprite.Group()
+
+
+def group_changes(height, speed):
+    while height - speed > 0:
+        for earth in earth_group:
+            earth.rect[1] += height
+            if earth.rect[1] > 1000:
+                earth_group.remove(earth)
+        for platform in platform_group:
+            platform.rect[1] += height
+            if platform.rect[1] > 1000:
+                platform_group.remove(platform)
+        for reliable in reliable_group:
+            reliable.rect[1] += height
+            if reliable.rect[1] > 1000:
+                platform_group.remove(reliable)
+        speed += speed
 
 
 def end_screen(screen):
@@ -232,6 +271,10 @@ def end_screen(screen):
                 if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
                     if event.ui_element == switch:
                         manager = 0
+                        earth_group.empty()
+                        people_group.empty()
+                        platform_group.empty()
+                        reliable_group.empty()
                         start_screen()
             manager.process_events(event)
             manager.update(time_delta)
@@ -240,6 +283,11 @@ def end_screen(screen):
 
 
 def start_screen():
+    global earth_group
+    global platform_group
+    global people_group
+    global reliable_group
+
     pygame.init()
     pygame.mixer.init()
     w, h = 500, 1000
@@ -284,11 +332,13 @@ def start_screen():
 
     font = pygame.font.Font(None, 35)
 
-    text_left_right = font.render('Нажимать, для движения в стороны', True, 'black')
-    text_up_down = font.render('Нажимать, для изменения звука', True, 'black')
+    text_left_right = font.render('Нажимать для движения в стороны', True, 'black')
+    text_up_down = font.render('Нажимать для изменения звука', True, 'black')
+    text_space = font.render('Пробел нажимать для паузы', True, 'black')
 
     screen.blit(text_left_right, (30, 300))
     screen.blit(text_up_down, (50, 850))
+    screen.blit(text_space, (70, 350))
 
     manager = pygame_gui.UIManager((500, 1000))
     switch = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((100, 450), (300, 100)),
@@ -302,14 +352,13 @@ def start_screen():
     fon_rect.x = 0
     fon_rect.y = 0
 
-    count_platform = 0
+    count_platform = 8
+    count_reliable_platform = 7
     fps = 60
     clock = pygame.time.Clock()
-    earth_group = pygame.sprite.Group()
-    people_group = pygame.sprite.Group()
-    platform_group = pygame.sprite.Group()
 
     time_click = 0
+    pause = False
     left = True
     left_turbo = False
     right = False
@@ -329,20 +378,24 @@ def start_screen():
                         manager = 0
                         screen = pygame.display.set_mode((w, h))
                         pygame.display.set_caption('Jumper')
-####################################################################################################################
-                        music = Music(screen)
-                        point = Point(screen)
+                        ####################################################################################################################
                         play = Play(screen)
-                        for i in range(5):
-                            platform_group.add(ReliablePlatform(random.randrange(0, 500-200), i))
-                        for i in range(count_platform):
+                        x_pos_rel = random.randrange(200, 300)
+                        for i in range(7):
+                            reliable_group.add(ReliablePlatform(x_pos_rel, i))
+                        for i in range(8):
                             platform_group.add(Platforms())
-                        #earth_group.add(Earth())
+                        earth_group.add(Earth())
                         people_group.add(Player(screen, people_group, platform_group, earth_group))
                         player = Player(screen, people_group, platform_group, earth_group)
                         main_motion = True
             if main_motion:
                 if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if not pause:
+                            pause = True
+                        else:
+                            pause = False
                     if event.key == pygame.K_RIGHT:
                         right = True
                         left = False
@@ -373,27 +426,32 @@ def start_screen():
                 manager.update(time_delta)
                 manager.draw_ui(screen)
         if main_motion:
-            play.draw()
-            screen.blit(fon_im, fon_rect)
-            earth_group.draw(screen)
-            platform_group.draw(screen)
-            people_group.draw(screen)
-            point.draw_point_val()
-            pygame.display.flip()
-            if draw_music:
-                time_click += 1/fps
-                if time_click > 2.5:
-                    draw_music = False
-            if music_sum_val:
-                music.sum_val()
-                music_sum_val = False
-            if music_difference:
-                music.difference()
-                music_difference = False
-            if draw_music:
-                music.draw_procents()
-            people_group.update(left, left_turbo, right)
-            platform_group.update()
+            if not pause:
+                play.draw()
+                screen.blit(fon_im, fon_rect)
+                earth_group.draw(screen)
+                platform_group.draw(screen)
+                reliable_group.draw(screen)
+                people_group.draw(screen)
+                pygame.display.flip()
+                if draw_music:
+                    time_click += 1 / fps
+                    if time_click > 2.5:
+                        draw_music = False
+                if music_sum_val:
+                    player.sum_val()
+                    music_sum_val = False
+                if music_difference:
+                    player.difference()
+                    music_difference = False
+                if draw_music:
+                    player.draw_procents()
+                reliable_group.update()
+                people_group.update(left, left_turbo, right)
+                platform_group.update()
+                pygame.display.flip()
+            else:
+                pygame.draw.polygon(screen, 'gray', ((230, 480), (270, 500), (230, 520)))
         pygame.display.flip()
 
 
