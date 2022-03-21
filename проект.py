@@ -30,8 +30,8 @@ class Point(Font):
         self.screen = screen
         self.point = 0
 
-    def sum_point(self, max_height):
-        self.point = max_height
+    def sum_point(self, m_height):
+        self.point = m_height
         self.draw_point_val()
 
     def draw_point_val(self):
@@ -44,7 +44,7 @@ class Music(Font):
         Font.__init__(self)
         self.screen = screen
 
-    def music(self, file, val):
+    def play_music(self, file):
         landing = pygame.mixer.Sound(file)
         landing.set_volume(val)
         if file == "venv/data/landing.mp3":
@@ -52,11 +52,16 @@ class Music(Font):
         else:
             landing.play()
 
-    def landing_mp(self, val):
-        self.music("venv/data/landing.mp3", val)
+    def draw_proc(self):
+        text_val = int(val * 100)
+        text_val = self.font.render(str(text_val) + '%', True, '#808080')
+        self.screen.blit(text_val, (490 - text_val.get_width(), 10))
+
+    def landing_mp(self):
+        self.play_music("venv/data/landing.mp3")
 
     def game_over_music(self):
-        self.music('venv/data/game_over.mp3', 1)
+        self.play_music('venv/data/game_over.mp3')
 
 
 class Player(Music, Point, pygame.sprite.Sprite):
@@ -64,45 +69,33 @@ class Player(Music, Point, pygame.sprite.Sprite):
     player_image = pygame.transform.scale(player_image, (60, 70))
     player_image.set_colorkey('white')
 
-    def __init__(self, screen, people_group, platform_group, earth_group):
+    def __init__(self, screen):
         pygame.sprite.Sprite.__init__(self)
         Music.__init__(self, screen)
         Point.__init__(self, screen)
         self.play = Play(screen)
-        self.val = 1
+        self.max_height = 0
 
         self.screen = screen
         self.fps = 60
         self.speed = 500
         self.clock = pygame.time.Clock()
         self.vy = 28
-        self.max_height = 0
         self.collide_flag = True
 
         self.image = Player.player_image
         self.rect = self.image.get_rect()
         self.rect.x = 250 - self.image.get_width() / 2
-        self.rect.y = 980 - self.image.get_height()
-
-    def difference(self):
-        if self.val > 0.1:
-            self.val -= 0.1
-
-    def sum_val(self):
-        if self.val < 1:
-            self.val += 0.1
-            self.draw_procents()
-
-    def draw_procents(self):
-        val = int(self.val * 100)
-        text_val = self.font.render(str(val) + '%', True, '#808080')
-        self.screen.blit(text_val, (490 - text_val.get_width(), 10))
+        for earth in earth_group:
+            self.rect.y = earth.rect[1] - self.image.get_height()
+            self.height_zero = earth.rect[1] - self.image.get_height()
 
     def update(self, left, turbo, right):
-        self.collide_flag = True
         self.sum_point(self.max_height)
-        if 980 - self.image.get_height() - self.rect.y > self.max_height * 10:
-            self.max_height = int((980 - self.image.get_height() - self.rect.y) / 10)
+        self.collide_flag = True
+        if self.height_zero - self.rect.y > self.max_height * 100:
+            self.max_height = int((self.height_zero - self.rect.y) / 100)
+
         if turbo:
             self.image = pygame.transform.flip(Player.player_image, True, False)
             self.rect.x -= self.speed / self.fps
@@ -118,33 +111,33 @@ class Player(Music, Point, pygame.sprite.Sprite):
             self.rect.x = 0 - self.image.get_width()
         if self.rect.y > 1000:
             self.play.check_game_over()
+
         if self.rect.y >= 500 and self.rect.y - self.vy < 500:
-            self.max_height += 500 - self.rect.y
+            self.max_height += -(500 - self.rect.y) / 100
             self.rect.y -= 500 - self.rect.y
             group_changes(self.vy + self.rect.y - 500, self.vy)
         else:
             self.rect.y -= self.vy
         if pygame.sprite.groupcollide(people_group, earth_group, False, False):
             self.vy = 28
-            self.landing_mp(self.val)
+            self.landing_mp()
             self.collide_flag = False
         for platform in platform_group:
             if (platform.rect[1] > self.rect.y + self.image.get_height() - 10 and
                     pygame.sprite.groupcollide(people_group, platform_group, False, False) and
                     self.vy <= 0):
                 self.vy = 28
-                self.landing_mp(self.val)
+                self.landing_mp()
                 self.collide_flag = False
                 break
-        if not self.collide_flag:
-            for earth in earth_group:
-                if (earth.rect[1] > self.rect.y + self.image.get_height() - 10 and
-                        pygame.sprite.groupcollide(people_group, earth_group, False, False) and
-                        self.vy <= 0):
-                    self.vy = 28
-                    self.landing_mp(self.val)
-                    self.collide_flag = False
-                    break
+        for relib in reliable_group:
+            if (relib.rect[1] > self.rect.y + self.image.get_height() - 10 and
+                    pygame.sprite.groupcollide(people_group, reliable_group, False, False) and
+                    self.vy <= 0):
+                self.vy = 28
+                self.landing_mp()
+                self.collide_flag = False
+                break
         if self.collide_flag:
             self.vy -= 2
 
@@ -170,13 +163,12 @@ class ReliablePlatform(pygame.sprite.Sprite):
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)
         self.image = ReliablePlatform.platform
-        self.image.set_colorkey('white')
         self.rect = self.image.get_rect()
-        self.rect.x = random.randrange(-(x - 100), x + 100)
-        self.rect.y = y * 210
-
-    def update(self):
-        pass
+        self.rect.x = random.randrange(x - 100, x + 100)
+        if y < 100:
+            self.rect.y = y * 190
+        else:
+            self.rect.y = y
 
 
 class Platforms(pygame.sprite.Sprite):
@@ -190,10 +182,7 @@ class Platforms(pygame.sprite.Sprite):
         self.image.set_colorkey('white')
         self.rect = self.image.get_rect()
         self.rect.x = random.randrange(0, 500 - self.image.get_width())
-        self.rect.y = random.randrange(0, 900)
-
-    def update(self):
-        pass
+        self.rect.y = random.randrange(-1000, 900)
 
 
 class Play(pygame.sprite.Sprite):
@@ -229,26 +218,26 @@ class Play(pygame.sprite.Sprite):
         Music(self.screen).game_over_music()
 
 
-earth_group = pygame.sprite.Group()
-people_group = pygame.sprite.Group()
-platform_group = pygame.sprite.Group()
-reliable_group = pygame.sprite.Group()
-
-
 def group_changes(height, speed):
-    while height - speed > 0:
-        for earth in earth_group:
-            earth.rect[1] += height
-            if earth.rect[1] > 1000:
-                earth_group.remove(earth)
-        for platform in platform_group:
-            platform.rect[1] += height
-            if platform.rect[1] > 1000:
-                platform_group.remove(platform)
-        for reliable in reliable_group:
-            reliable.rect[1] += height
-            if reliable.rect[1] > 1000:
-                platform_group.remove(reliable)
+    relib_empty = []
+    for earth in earth_group:
+        earth.rect[1] += height
+        if earth.rect[1] > 1000:
+            earth_group.remove(earth)
+    for platform in platform_group:
+        platform.rect[1] += height
+        if platform.rect[1] > 1000:
+            platform_group.remove(platform)
+    for reliable in reliable_group:
+        reliable.rect[1] += height / 2
+        if reliable.rect[1] > 1000:
+            reliable_group.remove(reliable)
+            if len(reliable_group) == 4:
+                for reliable2 in reliable_group:
+                    relib_empty.append(reliable2.rect[1])
+                min_rect_relib = min(relib_empty)
+                if min_rect_relib >= 0:
+                    reliable_group.add(ReliablePlatform(x_pos_relib, min_rect_relib - 190))
         speed += speed
 
 
@@ -283,10 +272,13 @@ def end_screen(screen):
 
 
 def start_screen():
+    global x_pos_relib
+    global count_reliable_platform
     global earth_group
     global platform_group
     global people_group
     global reliable_group
+    global val
 
     pygame.init()
     pygame.mixer.init()
@@ -353,7 +345,6 @@ def start_screen():
     fon_rect.y = 0
 
     count_platform = 8
-    count_reliable_platform = 7
     fps = 60
     clock = pygame.time.Clock()
 
@@ -366,6 +357,7 @@ def start_screen():
     main_motion = False
     music_sum_val = False
     music_difference = False
+
     while True:
         time_delta = clock.tick(fps) / 1000.0
         clock.tick(fps)
@@ -378,16 +370,15 @@ def start_screen():
                         manager = 0
                         screen = pygame.display.set_mode((w, h))
                         pygame.display.set_caption('Jumper')
-                        ####################################################################################################################
+                        #########################################################
                         play = Play(screen)
-                        x_pos_rel = random.randrange(200, 300)
-                        for i in range(7):
-                            reliable_group.add(ReliablePlatform(x_pos_rel, i))
-                        for i in range(8):
+                        for i in range(-1, count_reliable_platform):
+                            reliable_group.add(ReliablePlatform(x_pos_relib, i))
+                        for i in range(0):
                             platform_group.add(Platforms())
                         earth_group.add(Earth())
-                        people_group.add(Player(screen, people_group, platform_group, earth_group))
-                        player = Player(screen, people_group, platform_group, earth_group)
+                        people_group.add(Player(screen))
+                        player = Player(screen)
                         main_motion = True
             if main_motion:
                 if event.type == pygame.KEYDOWN:
@@ -439,13 +430,15 @@ def start_screen():
                     if time_click > 2.5:
                         draw_music = False
                 if music_sum_val:
-                    player.sum_val()
+                    if val < 1:
+                        val = round(val + 0.1, 1)
                     music_sum_val = False
                 if music_difference:
-                    player.difference()
+                    if val > 0:
+                        val = round(val - 0.1, 1)
                     music_difference = False
                 if draw_music:
-                    player.draw_procents()
+                    player.draw_proc()
                 reliable_group.update()
                 people_group.update(left, left_turbo, right)
                 platform_group.update()
@@ -456,4 +449,11 @@ def start_screen():
 
 
 if __name__ == '__main__':
+    earth_group = pygame.sprite.Group()
+    people_group = pygame.sprite.Group()
+    platform_group = pygame.sprite.Group()
+    reliable_group = pygame.sprite.Group()
+    count_reliable_platform = 5
+    x_pos_relib = random.randrange(200, 300)
+    val = 1
     start_screen()
