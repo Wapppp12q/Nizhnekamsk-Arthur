@@ -33,6 +33,15 @@ class Point(Font):
     def sum_point(self, m_height):
         self.point = m_height
         self.draw_point_val()
+        file = open(pathh + 'result.txt', encoding='utf8')
+        res = file.readline()
+        if res == '':
+            res = '0'
+        file.close()
+        file = open(pathh + 'result.txt', 'w')
+        if self.point > int(res):
+            file.write(str(self.point))
+        file.close()
 
     def draw_point_val(self):
         text_point = self.font.render(str(self.point), True, '#808080')
@@ -47,7 +56,7 @@ class Music(Font):
     def play_music(self, file):
         landing = pygame.mixer.Sound(file)
         landing.set_volume(val)
-        if file == "venv/data/landing.mp3":
+        if file == "data/landing.mp3":
             landing.play(maxtime=1000)
         else:
             landing.play()
@@ -58,14 +67,14 @@ class Music(Font):
         self.screen.blit(text_val, (490 - text_val.get_width(), 10))
 
     def landing_mp(self):
-        self.play_music("venv/data/landing.mp3")
+        self.play_music("data/landing.mp3")
 
     def game_over_music(self):
-        self.play_music('venv/data/game_over.mp3')
+        self.play_music('data/game_over.mp3')
 
 
 class Player(Music, Point, pygame.sprite.Sprite):
-    player_image = load_image('venv/data/people.png')
+    player_image = load_image('data/people.png')
     player_image = pygame.transform.scale(player_image, (60, 70))
     player_image.set_colorkey('white')
 
@@ -101,11 +110,10 @@ class Player(Music, Point, pygame.sprite.Sprite):
             group_changes(self.vy - (self.rect.y - 500))
             self.max_height += self.vy
         if not self.camera:
-            if self.height_zero - self.rect.y > self.max_height * 100:
-                self.max_height = int((self.height_zero - self.rect.y) / 100)
+            if self.height_zero - self.rect.y > self.max_height :
+                self.max_height = int(self.height_zero - self.rect.y)
         if not self.camera:
             self.rect.y -= self.vy
-
         if turbo:
             self.image = pygame.transform.flip(Player.player_image, True, False)
             self.rect.x -= self.speed / self.fps
@@ -121,7 +129,6 @@ class Player(Music, Point, pygame.sprite.Sprite):
             self.rect.x = 0 - self.image.get_width()
         if self.rect.y > 1000:
             self.play.check_game_over()
-
         for earth in earth_group:
             if ((pygame.sprite.groupcollide(people_group, earth_group, False, False) and
                  self.vy <= 0 and
@@ -160,7 +167,7 @@ class Player(Music, Point, pygame.sprite.Sprite):
 
 
 class Earth(pygame.sprite.Sprite):
-    earth_im = load_image('venv/data/earth.jfif')
+    earth_im = load_image('data/earth.jfif')
     earth_im.set_colorkey('white')
     earth_im = pygame.transform.scale(earth_im, (560, 100))
 
@@ -173,7 +180,7 @@ class Earth(pygame.sprite.Sprite):
 
 
 class ReliablePlatform(pygame.sprite.Sprite):
-    platform = load_image('venv/data/platform.png')
+    platform = load_image('data/platform.png')
     platform.set_colorkey('white')
     platform = pygame.transform.scale(platform, (65, 17))
 
@@ -195,7 +202,7 @@ class ReliablePlatform(pygame.sprite.Sprite):
 
 
 class Platforms(pygame.sprite.Sprite):
-    platform = load_image('venv/data/platform.png')
+    platform = load_image('data/platform.png')
     platform.set_colorkey('white')
     platform = pygame.transform.scale(platform, (65, 17))
 
@@ -220,7 +227,7 @@ class Play(pygame.sprite.Sprite):
         self.clock = pygame.time.Clock()
 
         self.game_over_flag = False
-        self.game_over_im = pygame.image.load('venv/data/game_over.png')
+        self.game_over_im = pygame.image.load('data/game_over.png')
         self.game_over_im.set_colorkey('white')
         self.game_over_im = pygame.transform.scale(self.game_over_im, (500, 300))
         self.rect_game_over = self.game_over_im.get_rect(center=(0 - self.game_over_im.get_width() / 2,
@@ -274,11 +281,16 @@ def group_changes(height):
 
 def end_screen(screen):
     fps = 60
+    font = pygame.font.Font(None, 50)
     clock = pygame.time.Clock()
     manager = pygame_gui.UIManager((500, 1000))
     switch = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((100, 650), (300, 50)),
                                           text='Начать заново',
                                           manager=manager)
+    file = open(pathh + 'result.txt', encoding='utf8')
+    res = file.readline()
+    record_text = font.render('Результат:' + ' ' + res, True, 'black')
+    screen.blit(record_text, (100, 750))
     pygame.display.flip()
 
     while True:
@@ -496,5 +508,5 @@ if __name__ == '__main__':
     count_platform = 16
     x_pos_relib = random.randrange(0, 500)
     val = 1
-    pathh = 'venv/data/'
+    pathh = 'data/'
     start_screen()
