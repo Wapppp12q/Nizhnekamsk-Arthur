@@ -3,7 +3,6 @@ import sys
 import pygame
 import pygame_gui
 import random
-import pickle
 
 
 def terminate():
