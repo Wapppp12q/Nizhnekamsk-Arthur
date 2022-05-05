@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+<style>
+    @import url('static/css/reg_style.css')
+</style>
+<h1 align="center">
+    Добро пожаловать в <img class="boot" src="static/image/boot.png">
+</h1>
+<h2 align="center">Регистрация в соц.сети:</h2>
+<div class="error">{{error}}</div>
+<div class="card">
+    <div class="'card-body">
+        <form action="" method="post" novalidate>
+            {{ form.csrf_token }}
+            <div class="reg">
+                <p>{{ form.email.label() }}<br>
+                    {{ form.email }}
+                </p>
+                <p>{{ form.submit }}</p>
+                <p>{{ form.entrance }}</p>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
