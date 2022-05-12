@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+<style>
+    @import url('/static/css/page.css')
+</style>
+<h1>Профиль</h1>
+<div class="card">
+    <div class="card-body">
+        <form action="" method="post" novalidate>
+            {{ form.csrf_token }}
+            <h1>{{ name }} {{ surname }}</h1>
+            <img src="{{ src }}">
+            <p>{{ form.submit }}</p>
+        </form>
+    </div>
+</div>
+{% endblock %}
