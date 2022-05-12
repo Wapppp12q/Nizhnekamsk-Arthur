@@ -15,7 +15,10 @@ def entr_ex(email, password):
             break
 
     if exam_email:
-        for pas in db_sess.query(Data.hashed_password).filter(Reg.email == email):
-            return check_password(pas, password)
+        pas = str(*db_sess.query(Data.hashed_password).filter(Reg.email == email)).replace(',', '')\
+            .replace('(', '').replace(')', '')
+        db_sess.close()
+        return check_password(pas, password)
     else:
+        db_sess.close()
         return False

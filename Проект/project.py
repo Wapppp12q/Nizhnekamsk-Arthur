@@ -24,6 +24,7 @@ from forms.entrance import Entrance
 from models import database
 from models.users_reg import Reg
 from models.users_data import Data
+from models.page_data import PData
 
 from cr_code import create_code
 from create_secret_email import cr_sec_email
@@ -31,10 +32,11 @@ from create_secret_email import cr_sec_email
 UPLOAD_FOLDER = 'C:\\Users\\artur\\PycharmProjects\\Project\\Проект\\static\\image'
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 DATABASE_NAME = 'db/users.sqlite'
+PATH_DIC = r'C:\Users\artur\PycharmProjects\Project\Проект\static\image'
 
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 app.config['SECRET_KEY'] = 'fdgjj54569*FJ$84jgf@#_fdsgf897435hj89wq8*SRF89dsgkjs8g7*(&*(&%giodsg5ten0&r(9Br37h8'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -69,6 +71,7 @@ def upload_file():
 # Пароль, чтобы не придумывать YUGDsdf12#%fdg
 @app.route('/', methods=['GET', 'POST'])
 def register():
+    global PATH_DIC
 
     code = create_code()
 
@@ -93,7 +96,8 @@ def register():
                 user_reg = Reg(code_ver=code, email=email)
                 db_sess.add(user_reg)
                 db_sess.commit()
-                id_ver = str(*db_sess.query(Reg.id).filter(Reg.email == addr_to)).replace(',', '')
+                id_ver = str(*db_sess.query(Reg.id).filter(Reg.email == addr_to)).replace(',', '')\
+                    .replace('(', '').replace(')', '')
                 db_sess.close()
                 addr_to_sec = cr_sec_email(addr_to)
                 return redirect(f"/verification/{id_ver}/{addr_to_sec}")
@@ -111,21 +115,27 @@ def register():
 @app.route('/register_data/<id_ver>/<sec_email>', methods=['GET', 'POST'])
 def register_data(id_ver, sec_email):
     error = ''
-    id_ver = int(str(id_ver).strip().replace('(', '').replace(')', ''))
+    id_ver = int(id_ver)
     form = DataForm()
-    print(form.name.data, form.surname.data, form.password.data, form.pass_exam, form.submit.data)
-    if form.name.data and form.surname.data and form.password.data and form.pass_exam and form.submit.data:
+    if form.validate_on_submit():
         error = exam(form.password.data, form.pass_exam.data)
-        if error:
+        if type(error) == bool:
             hashed_password = set_password(form.password.data)
             name = form.name.data
             surname = form.surname.data
-            avatar = 'static/image/avatar.jpeg'
             created_data = datetime.datetime.now()
             user_data = Data(name=name, surname=surname, created_date=created_data, user_id=id_ver,
-                             hashed_password=hashed_password, avatar=avatar)
+                             hashed_password=hashed_password)
+            avatar = 'static/image/avatar.jpeg'
+            status = 'Я пользуюсь Boot'
+            page_data = PData(status=status, avatar=avatar)
             db_sess = database.create_session()
+            email = str(*db_sess.query(Reg.email).filter(Reg.id == id_ver)).replace(',', '')\
+                    .replace('(', '').replace(')', '')
+            direc = PATH_DIC + '/' + email
+            os.mkdir(direc)
             db_sess.add(user_data)
+            db_sess.add(page_data)
             db_sess.commit()
             db_sess.close()
             return redirect(f'/page/{id_ver}')
@@ -163,6 +173,7 @@ def entrance():
         db_sess = database.create_session()
         id = str(*db_sess.query(Reg.id).filter(Reg.email == form.email.data)).replace(',', '').replace('(', '')\
             .replace(')', '')
+        db_sess.close()
         if truth_user:
             return redirect(f'/page/{id}')
         else:
@@ -176,12 +187,14 @@ def entrance():
 def page(id):
     id = int(str(id).replace('(', '').replace(')', ''))
     db_sess = database.create_session()
-    src_res = db_sess.query(Data.avatar).filter(Data.user_id == id)
+    src_res = db_sess.query(PData.avatar).filter(PData.page_id == id)
     src = str(*src_res).replace('(', '').replace(')', '').replace(',', '')
+    FI = db_sess.query(Data.name, Data.surname).filter(Data.user_id == id)
+    print(FI)
     form = PageForm()
     if form.submit.data:
-        return redirect('/upload')
-    return render_template('page.html', title='Boot', form=form, src=src)
+        return redirect(f'/upload/{id}')
+    return render_template('page.html', title='Boot', form=form, src=src, FI=FI)
 
 
 if __name__ == '__main__':

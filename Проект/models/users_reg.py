@@ -11,6 +11,7 @@ class Reg(Base):
     email = Column(String, nullable=True)
     code_ver = Column(Integer, nullable=True)
     data = orm.relation("Data", back_populates='user')
+    data_page = orm.relation('PData', back_populates='page')
 
     def __repr__(self):
         info: str = f'Пользователь [ID: {self.id}, Почта: {self.email}' \

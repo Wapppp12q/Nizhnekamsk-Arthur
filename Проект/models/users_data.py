@@ -12,7 +12,6 @@ class Data(Base):
     name = Column(String, nullable=True)
     surname = Column(String, nullable=True)
     hashed_password = Column(String, nullable=True)
-    avatar = Column(String, nullable=True)
     created_date = Column(DateTime, nullable=True)
     user_id = Column(Integer, ForeignKey('reg.id'))
     user = orm.relationship('Reg')
