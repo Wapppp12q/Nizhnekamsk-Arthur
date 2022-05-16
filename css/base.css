@@ -1,0 +1,12 @@
+.error {color: red;
+        margin: auto;}
+
+.head {
+       height: 90px;
+       width: 200px;
+       }
+
+.form-control {
+               background-color: #00f3c7;
+               height: 100px;
+               }
