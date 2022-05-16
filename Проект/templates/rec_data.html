@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    @import url('/static/css/rec_data.css')
+</style>
+<h1>Ввостановление аккаунта</h1>
+<div class="card">
+    <div class="card-body">
+        <form action="" method="post" novalidate>
+            {{ form.csrf_token }}
+            {{error}}
+            <p>{{form.password.label()}}<br>
+               {{form.password}}</p>
+            <p>{{form.pass_exam.label()}}<br>
+               {{form.pass_exam}}</p>
+            <p>{{ form.submit }}</p>
+        </form>
+    </div>
+</div>
+{% endblock %}
